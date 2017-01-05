@@ -1,0 +1,51 @@
+Overlord
+
+Overview
+	Central control system, allowing a master computer to issue commands to several
+	slave computers.
+
+	The program will either be a master program or a slave program, determined
+	through inputs to a command line interface. Then, commands issued through the
+	master program will be repeated on all the slave computers.
+
+	
+Technical Design
+	Master Program
+		Reads inputs from user
+			String parsing
+			
+		Contains list of slave computers
+			Linked or array list of dynamic size
+			Binary search through slave IDs
+		
+		Sends commands to and receives output from slave connections
+			Networking
+
+	Slave Program
+		Receives commands from master computer
+			Networking
+
+		Runs commands from and sends output to master computer
+			Processes
+			Networking
+			Pipes
+
+
+Reach Goals
+	Additional modes
+		Spy mode
+			Slaves send all output (secretly) to master
+			
+
+Timeline
+	01/08: Master string parsing and slave command execution
+	01/11: Slave piping
+	01/14: Networking, list data structure and search algorithm
+	01/17: Basic functionality complete
+	01/20: Advanced functionality
+	01/23: Project completion
+
+
+Kenneth Li
+Systems Fall 2016 Period 10
+Final Project
