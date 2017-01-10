@@ -1,0 +1,10 @@
+2016-01-09
+	Worked on a more advanced command parser
+		Quotes and backslashes as escape sequences work
+		TODO: Redirection
+
+2016-01-06
+	Basic fgets functionality for master program
+	Basic execvp functionality for slave program
+
+	
