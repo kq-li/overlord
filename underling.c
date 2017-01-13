@@ -4,7 +4,9 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define STANDALONE 1
+#include "network.h"
+
+#define STANDALONE 0
 
 #define TEXT 1
 #define SPACES 2
@@ -114,7 +116,8 @@ int main() {
 		printf("\n");
 		
 	} else {
-
+    int sock = clientConnect("127.0.0.1", 5001);
+    
 	}
 
 	return 0;
