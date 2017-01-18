@@ -34,11 +34,13 @@ int main() {
   printf("Type help for available commands.\n");
 
   int state = DEFAULT;
+  char *input;
+  socket_list *list;
 
 	while (state) {
     switch (state) {
     case DEFAULT:
-      char *input = prompt("[DEFAULT]> ");
+      input = prompt("[DEFAULT]> ");
 
       if (startsWith(input, "help")) {
       
@@ -63,7 +65,7 @@ int main() {
       break;
 
     case MANAGE:
-      char *input = prompt("[MANAGE]> ");
+      input = prompt("[MANAGE]> ");
 
       if (startsWith(input, "add")) {
         int sock = serverSocket(5001);
