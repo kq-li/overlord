@@ -117,7 +117,8 @@ int main() {
 		
 	} else {
     int sock = clientConnect("127.0.0.1", 5001);
-    
+
+    close(sock);
 	}
 
 	return 0;

@@ -10,55 +10,6 @@
 
 #include "network.h"
 
-socket_node *newSocketNode(int sock, char *description) {
-  socket_node *ret = (socket_node *) malloc(sizeof(socket_node));
-  ret->sock = sock;
-  ret->description = (char *) malloc(strlen(description));
-  strcpy(ret->description, description);
-  ret->next = NULL;
-  return ret;
-}
-
-void addSocketToList(socket_list *list, int sock, char *description) {
-  list->end->next = newSocketNode(sock, description);
-  list->size++;
-}
-
-void freeSocketNode(socket_node *node) {
-  if (node) {
-    if (node->description) {
-      free(node->description);
-    }
-
-    if (node->next) {
-      free(node->next);
-    }
-
-    free(node);
-  }
-}
-
-void removeSocketFromList(socket_list *list, int sock) {
-  socket_node *node = list->root;
-  socket_node *trail = node;
-
-  while (node->sock != sock) {
-    trail = node;
-    node = node->next;
-  }
-
-  if (node->sock == sock) {
-    if (trail != node) {
-      trail->next = node->next;
-    } else {
-      list->root = node->next;
-    }
-    
-    freeSocketNode(node);
-    list->size--;
-  }
-}
-
 int checkError(int descriptor, char *description) {
   if (descriptor == -1) {
     printf("%s error %d: %s\n", description, errno, strerror(errno));

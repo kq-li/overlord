@@ -2,8 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #include "network.h"
+#include "overlist.h"
 
 #define MAX_INPUT 1024
 
@@ -13,16 +16,19 @@
 #define SPY 3
 #define MANAGE 4
 
-char *prompt(char *prefix) {
-  printf("%s", prefix);
-	char *input = (char *) calloc(MAX_INPUT, sizeof(char));
-	fgets(input, MAX_INPUT, stdin);
-	input[strcspn(input, "\n")] = 0;
+char *prompt(char *prefix, int history) {
+  //printf("%s", prefix);
+	//char *input = (char *) calloc(MAX_INPUT, sizeof(char));
+	//fgets(input, MAX_INPUT, stdin);
+	//input[strcspn(input, "\n")] = 0;
+
+  char *input = readline(prefix);
+
+  if (history && input && *input) {
+    add_history(input);
+  }
+  
 	return input;
-}
-
-void subServer(int connection) {
-
 }
 
 int startsWith(char *s1, char *s2) {
@@ -35,12 +41,13 @@ int main() {
 
   int state = DEFAULT;
   char *input;
-  socket_list *list;
+  client_list *underlings = newClientList();
+  int sock = serverSocket(5001);
 
 	while (state) {
     switch (state) {
     case DEFAULT:
-      input = prompt("[DEFAULT]> ");
+      input = prompt("[DEFAULT]> ", 1);
 
       if (startsWith(input, "help")) {
       
@@ -65,30 +72,26 @@ int main() {
       break;
 
     case MANAGE:
-      input = prompt("[MANAGE]> ");
+      input = prompt("[MANAGE]> ", 1);
 
       if (startsWith(input, "add")) {
-        int sock = serverSocket(5001);
+        printf("Waiting for underling to connect...\n");
 
         int connection = serverConnect(sock);
 
-        int pid = fork();
+        printf("Underling connected.\n");
 
-        if (pid == 0) {
-          // child
-          close(sock);
-          subServer(connection);
-          exit(0);
-        } else {
-          // parent
-          close(connection);
-        }
+        input = prompt("Enter a description for this underling: ", 0);
+
+        addClientToList(underlings, 0, connection, input);
       } else if (startsWith(input, "remove")) {
 
+      } else if (startsWith(input, "view")) {
+        printClientList(underlings);
       } else if (startsWith(input, "back")) {
         state = DEFAULT;
       }
-      
+            
       break;
 
     default:
@@ -96,6 +99,8 @@ int main() {
       break;
     }
 	}
-	
+
+  close(sock);
+  
 	return 0;
 }
