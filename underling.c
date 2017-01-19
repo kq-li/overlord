@@ -99,8 +99,8 @@ void execute(char **command) {
 
 int main() {
 	if (STANDALONE) { //debugging without overlord
-		char input[1024];
-		fgets(input, 1024, stdin);
+		char input[MAX_MESSAGE_LENGTH];
+		fgets(input, MAX_MESSAGE_LENGTH, stdin);
 		input[strcspn(input, "\n")] = 0;
 
 		char **command = parse(input);
@@ -116,8 +116,20 @@ int main() {
 		printf("\n");
 		
 	} else {
-    int sock = clientConnect("127.0.0.1", 5001);
+    int sock = clientConnect("127.0.0.1", PORT);
 
+    printf("Connected to overlord.\n");
+
+    int isRunning = 1;
+    char input[MAX_MESSAGE_LENGTH];
+
+    while (isRunning) {
+      read(sock, input, MAX_MESSAGE_LENGTH);
+      printf("Command received: %s\n", input);
+      char **command = parse(input);
+      execute(command);
+    }
+    
     close(sock);
 	}
 

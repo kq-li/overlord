@@ -35,6 +35,8 @@ void freeClientNode(client_node *node) {
       free(node->description);
     }
 
+    close(node->sock);
+
     free(node);
   }
 }
