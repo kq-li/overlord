@@ -16,19 +16,16 @@
 #define SPY 3
 #define MANAGE 4
 
-char *prompt(char *prefix, int history) {
-  //printf("%s", prefix);
-	//char *input = (char *) calloc(MAX_INPUT, sizeof(char));
-	//fgets(input, MAX_INPUT, stdin);
-	//input[strcspn(input, "\n")] = 0;
-
-  char *input = readline(prefix);
-
-  if (history && input && *input) {
-    add_history(input);
+void prompt(char **input_ptr, char *prefix, int history) {
+  if (*input_ptr) {
+    free(*input_ptr);
   }
-  
-	return input;
+
+  *input_ptr = readline(prefix);
+
+  if (history && *input_ptr && **input_ptr) {
+    add_history(*input_ptr);
+  }
 }
 
 int startsWith(char *s1, char *s2) {
@@ -40,14 +37,14 @@ int main() {
   printf("Type help for available commands.\n");
 
   int state = DEFAULT;
-  char *input;
+  char *input = NULL;
   client_list *underlings = newClientList();
   int sock = serverSocket(5001);
 
 	while (state) {
     switch (state) {
     case DEFAULT:
-      input = prompt("[DEFAULT]> ", 1);
+      prompt(&input, "[DEFAULT]> ", 1);
 
       if (startsWith(input, "help")) {
       
@@ -72,7 +69,7 @@ int main() {
       break;
 
     case MANAGE:
-      input = prompt("[MANAGE]> ", 1);
+      prompt(&input, "[MANAGE]> ", 1);
 
       if (startsWith(input, "add")) {
         printf("Waiting for underling to connect...\n");
@@ -81,7 +78,7 @@ int main() {
 
         printf("Underling connected.\n");
 
-        input = prompt("Enter a description for this underling: ", 0);
+        prompt(&input, "Enter a description for this underling: ", 0);
 
         addClientToList(underlings, 0, connection, input);
       } else if (startsWith(input, "remove")) {
@@ -100,6 +97,8 @@ int main() {
     }
 	}
 
+  free(input);
+  freeClientList(underlings);
   close(sock);
   
 	return 0;

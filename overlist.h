@@ -21,6 +21,8 @@ void addClientToList(client_list *list, int pid, int sock, char *description);
 
 void freeClientNode(client_node *node);
 
+void freeClientList(client_list *list);
+
 void removeClientFromList(client_list *list, int pid);
 
 client_node *findClientInList(client_list *list, int pid);

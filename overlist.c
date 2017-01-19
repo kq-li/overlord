@@ -39,6 +39,17 @@ void freeClientNode(client_node *node) {
   }
 }
 
+void freeClientList(client_list *list) {
+  int i = 0;
+
+  for (i = 0; i < list->size; i++) {
+    freeClientNode(list->list[i]);
+  }
+
+  list->size = 0;
+  free(list);
+}
+
 void removeClientFromList(client_list *list, int pid) {
   int i = 0;
   int found = 0;
