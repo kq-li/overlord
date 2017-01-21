@@ -10,15 +10,6 @@
 
 #include "network.h"
 
-int checkError(int descriptor, char *description) {
-  if (descriptor == -1) {
-    printf("%s error %d: %s\n", description, errno, strerror(errno));
-    return -1;
-  }
-
-  return 0;
-}
-
 int serverSocket(int port) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -67,7 +58,7 @@ int clientConnect(char *address, int port) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
 
   if (checkError(sock, "[CLIENT] Socket")) {
-    return -1;
+    return -2;
   }
 
   struct sockaddr_in sock_struct;

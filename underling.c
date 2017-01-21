@@ -1,31 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-
-#include "network.h"
+#include "util.h"
 
 #define STANDALONE 0
 
 #define TEXT 1
 #define SPACES 2
 #define QUOTES 3
-
-int startsWith(char *str, char *key) {
-	return strncmp(str, key, strlen(key)) == 0;
-}
-
-void leftShift(char *str, int offset) {
-	char *trail = str;
-	str += offset;
-
-	while (*str) {
-		*(trail++) = *(str++);
-	}
-
-	*trail = 0;
-}
 
 // This time, I'm hardcoding the escape sequences.
 char **parse(char *str) {
@@ -88,13 +67,13 @@ void execute(char **command) {
 
 	if (pid == -1) { //error
 		printf("Error %d: %s\n", errno, strerror(errno));
-	} else if (pid == 0) { //parent
-
-	} else { //child
+	} else if (pid == 0) { //child
 		if (execvp(command[0], command) == -1) {
 			printf("Error %d: %s\n", errno, strerror(errno));
 		}
-	}
+	} else { //parent
+
+  }
 }
 
 int main() {
@@ -116,18 +95,36 @@ int main() {
 		printf("\n");
 		
 	} else {
-    int sock = clientConnect("127.0.0.1", PORT);
-
-    printf("Connected to overlord.\n");
-
+    char *address = NULL;
     int isRunning = 1;
-    char input[MAX_MESSAGE_LENGTH];
+    char message[MAX_MESSAGE_LENGTH];
+    int sock = -1;
 
     while (isRunning) {
-      read(sock, input, MAX_MESSAGE_LENGTH);
-      printf("Command received: %s\n", input);
-      char **command = parse(input);
-      execute(command);
+      if (sock < 0) {
+        prompt(&address, "Enter overlord address: ", 1);
+        sock = clientConnect(address, PORT);
+        //usleep(1000000);
+
+        if (sock >= 0) {
+          printf("Connected to overlord.\n");
+        }
+      } else {
+        int length = read(sock, message, MAX_MESSAGE_LENGTH);
+
+        if (length > 0) {
+          printf("Command received: %s\n", message);
+          char **command = parse(message);
+
+          int stdout = dup(STDOUT_FILENO);
+          dup2(sock, STDOUT_FILENO);
+          execute(command);
+          dup2(stdout, STDOUT_FILENO);
+          close(stdout);
+        } else if (length < 0) {
+          isRunning = 0;
+        }
+      }
     }
     
     close(sock);

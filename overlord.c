@@ -1,11 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <readline/readline.h>
-#include <readline/history.h>
-
-#include "network.h"
+#include "util.h"
 #include "overlist.h"
 
 #define MAX_INPUT 1024
@@ -16,36 +9,13 @@
 #define SPY 3
 #define MANAGE 4
 
-int min(int a, int b) {
-  if (a > b) {
-    return b;
-  }
-
-  return a;
-}
-
-void prompt(char **input_ptr, char *prefix, int history) {
-  if (*input_ptr) {
-    free(*input_ptr);
-  }
-
-  *input_ptr = readline(prefix);
-
-  if (history && *input_ptr && **input_ptr) {
-    add_history(*input_ptr);
-  }
-}
-
-int startsWith(char *s1, char *s2) {
-  return strncmp(s1, s2, strlen(s2)) == 0;
-}
-
 int main() {
   printf("Welcome, overlord.\n");
   printf("Type help for available commands.\n");
 
   int state = DEFAULT;
   char *input = NULL;
+  char message[MAX_MESSAGE_LENGTH];
   client_list *underlings = newClientList();
   int sock = serverSocket(PORT);
 
@@ -69,16 +39,25 @@ int main() {
       break;
 
     case ORDER:
-      printClientList(underlings);
+      if (underlings->size == 0) {
+        printf("No underlings available.\n");
+      } else {
+        printClientList(underlings);
 
-      prompt(&input, "Enter underling ID: ", 0);
+        prompt(&input, "Enter underling ID: ", 0);
 
-      client_node *underling = underlings->list[atoi(input)];
+        client_node *underling = underlings->list[atoi(input)];
 
-      prompt(&input, "Enter command: ", 0);
+        prompt(&input, "Enter command: ", 0);
+        strncpy(message, input, MAX_MESSAGE_LENGTH);
 
-      write(underling->sock, input, min(strlen(input) + 1, MAX_MESSAGE_LENGTH));
+        write(underling->sock, message, MAX_MESSAGE_LENGTH);
 
+        read(underling->sock, message, MAX_MESSAGE_LENGTH);
+
+        printf("%s\n", message);
+      }
+      
       state = DEFAULT;
       
       break;
