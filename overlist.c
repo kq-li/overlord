@@ -10,12 +10,13 @@ client_list *newClientList() {
   ret->size = 0;
 }
 
-client_node *newClientNode(int pid, int sock, char *description) {
+client_node *newClientNode(int sock, char *description, char *prefix) {
   client_node *ret = (client_node *) malloc(sizeof(client_node));
-  ret->pid = pid;
   ret->sock = sock;
   ret->description = (char *) malloc(strlen(description) + 1);
   strcpy(ret->description, description);
+  ret->prefix = (char *) malloc(strlen(prefix) + 1);
+  strcpy(ret->prefix, prefix);
   return ret;
 }
 
@@ -25,14 +26,18 @@ void addClientNodeToList(client_list *list, client_node *node) {
   }
 }
 
-void addClientToList(client_list *list, int pid, int sock, char *description) {
-  addClientNodeToList(list, newClientNode(pid, sock, description));
+void addClientToList(client_list *list, int sock, char *description, char *prefix) {
+  addClientNodeToList(list, newClientNode(sock, description, prefix));
 }
 
 void freeClientNode(client_node *node) {
   if (node != NULL) {
     if (node->description) {
       free(node->description);
+    }
+
+    if (node->prefix) {
+      free(node->prefix);
     }
 
     close(node->sock);
@@ -52,43 +57,25 @@ void freeClientList(client_list *list) {
   free(list);
 }
 
-void removeClientFromList(client_list *list, int pid) {
-  int i = 0;
-  int found = 0;
+void removeClientFromList(client_list *list, int id) {
+  freeClientNode(list->list[id]);
 
-  for (i = 0; i < list->size; i++) {
-    if (!found) {
-      if (list->list[i] != NULL && list->list[i]->pid == pid) {
-        freeClientNode(list->list[i]);
-        found = 1;
-      }
-    } else {
-      list->list[i - 1] = list->list[i];
-    }
+  int i = 0;
+
+  for (i = id + 1; i < list->size; i++) {
+    list->list[i - 1] = list->list[i];
   }
 
   list->list[i] = NULL;
   list->size--;
 }
 
-client_node *findClientInList(client_list *list, int pid) {
-  int i = 0;
-
-  for (i = 0; i < list->size; i++) {
-    if (list->list[i] != NULL && list->list[i]->pid == pid) {
-      return list->list[i];
-    }
-  }
-
-  return NULL;
-}
-
 void printClientNode(client_node *node) {
-  printf("%d\t\t%d\t\t%s\n", node->pid, node->sock, node->description);
+  printf("%d\t\t%s\n", node->sock, node->description);
 }
 
 void printClientList(client_list *list) {
-  printf("ID\t\tPID\t\tSocket\t\tDescription\n");
+  printf("ID\t\tSocket\t\tDescription\n");
   printf("--------------------------------------------------------------------------------\n");
   
   int i = 0;

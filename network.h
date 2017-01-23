@@ -1,5 +1,5 @@
 #define MAX_MESSAGE_LENGTH 1024
-#define PORT 5004
+#define PORT 5001
 
 int serverSocket();
 

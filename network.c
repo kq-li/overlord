@@ -13,7 +13,7 @@
 int serverSocket(int port) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
 
-  if (checkError(sock, "[SERVER] Socket")) {
+  if (checkError(sock, "Socket")) {
     // error handling
     return -1;
   }
@@ -25,7 +25,7 @@ int serverSocket(int port) {
 
   int bindStatus = bind(sock, (struct sockaddr *) &sock_struct, sizeof(sock_struct));
 
-  if (checkError(bindStatus, "[SERVER] Bind")) {
+  if (checkError(bindStatus, "Bind")) {
     // error handling
     return -1;
   }
@@ -36,7 +36,7 @@ int serverSocket(int port) {
 int serverConnect(int sock) {
   int listenStatus = listen(sock, 1);
 
-  if (checkError(listenStatus, "[SERVER] Listen")) {
+  if (checkError(listenStatus, "Listen")) {
     return -1;
   }
 
@@ -45,11 +45,11 @@ int serverConnect(int sock) {
 
   int connection = accept(sock, (struct sockaddr *) &sock_struct, &sock_struct_len);
   
-  if (checkError(connection, "[SERVER] Accept")) {
+  if (checkError(connection, "Accept")) {
     return -1;
   }
 
-  printf("[SERVER] Connected to %s\n", inet_ntoa(sock_struct.sin_addr));
+  printf("Connected to %s\n", inet_ntoa(sock_struct.sin_addr));
 
   return connection;
 }
@@ -57,7 +57,7 @@ int serverConnect(int sock) {
 int clientConnect(char *address, int port) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
 
-  if (checkError(sock, "[CLIENT] Socket")) {
+  if (checkError(sock, "Socket")) {
     return -2;
   }
 
@@ -66,11 +66,11 @@ int clientConnect(char *address, int port) {
   inet_aton(address, &sock_struct.sin_addr);
   sock_struct.sin_port = htons(port);
 
-  printf("[CLIENT] Connecting to %s:%d\n", address, port);
+  printf("Connecting to %s:%d\n", address, port);
 
   int connectStatus = connect(sock, (struct sockaddr *) &sock_struct, sizeof(sock_struct));
 
-  if (checkError(connectStatus, "[CLIENT] Connect")) {
+  if (checkError(connectStatus, "Connect")) {
     return -1;
   }
 

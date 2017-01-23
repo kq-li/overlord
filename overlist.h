@@ -1,9 +1,9 @@
 #define MAX_CLIENTS 128
 
 typedef struct client_node_struct {
-  int pid;
   int sock;
   char *description;
+  char *prefix;
 } client_node;
 
 typedef struct client_list_struct {
@@ -13,19 +13,17 @@ typedef struct client_list_struct {
 
 client_list *newClientList();
 
-client_node *newClientNode(int pid, int sock, char *description);
+client_node *newClientNode(int sock, char *description, char *prefix);
 
 void addClientNodeToList(client_list *list, client_node *node);
 
-void addClientToList(client_list *list, int pid, int sock, char *description);
+void addClientToList(client_list *list, int sock, char *description, char *prefix);
 
 void freeClientNode(client_node *node);
 
 void freeClientList(client_list *list);
 
-void removeClientFromList(client_list *list, int pid);
-
-client_node *findClientInList(client_list *list, int pid);
+void removeClientFromList(client_list *list, int id);
 
 void printClientNode(client_node *node);
 

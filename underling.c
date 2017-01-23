@@ -1,5 +1,7 @@
 #include "util.h"
 
+#define LOCALHOST "127.0.0.1"
+
 #define STANDALONE 0
 
 #define TEXT 1
@@ -8,7 +10,7 @@
 
 // This time, I'm hardcoding the escape sequences.
 char **parse(char *str) {
-	char **ret = (char **) calloc(sizeof(char *), strlen(str));
+  char **ret = (char **) calloc(sizeof(char *), strlen(str));
 	char *trail = str;
 	int state = TEXT;
 	int i = 0;
@@ -72,8 +74,33 @@ void execute(char **command) {
 			printf("Error %d: %s\n", errno, strerror(errno));
 		}
 	} else { //parent
-
+    waitpid(pid, NULL, 0);
   }
+}
+
+char *getPrompt() {
+  char *cwd = getcwd(NULL, 0);
+	char *home = getenv("HOME");
+	
+	if (startsWith(cwd, home)) {
+		leftShift(cwd, strlen(home) - 1);
+		*cwd = '~';
+	}
+	
+	char hostname[256];
+	gethostname(hostname, 256);
+	
+	char *prefix = (char *) calloc(sizeof(char), strlen(cwd) + strlen(hostname) + 64);
+	sprintf(prefix,
+					//BOLD_RED
+          "%s:"
+          //BOLD_BLUE
+          "%s $ "
+          //BOLD_GREEN
+          ,
+          hostname, cwd);
+
+  return prefix;
 }
 
 int main() {
@@ -95,39 +122,105 @@ int main() {
 		printf("\n");
 		
 	} else {
+    char *input = NULL;
     char *address = NULL;
+    int port = -1;
     int isRunning = 1;
     char message[MAX_MESSAGE_LENGTH];
     int sock = -1;
+    char *prefix = NULL;
+    char **command = NULL;
 
     while (isRunning) {
       if (sock < 0) {
-        prompt(&address, "Enter overlord address: ", 1);
-        sock = clientConnect(address, PORT);
-        //usleep(1000000);
+        prompt(&input, "Enter overlord address (default 127.0.0.1): ", 1);
 
-        if (sock >= 0) {
-          printf("Connected to overlord.\n");
+        if (*input) {
+          address = (char *) malloc(strlen(input) + 1);
+          strcpy(address, input);
+        } else {
+          address = (char *) malloc(strlen(LOCALHOST) + 1);
+          strcpy(address, LOCALHOST);
+        }
+        
+        prompt(&input, "Enter port (default 5001): ", 1);
+
+        if (*input) {
+          sscanf(input, "%d", &port);
+        } else {
+          port = PORT;
+        }
+        
+        printf("%s:%d\n", address, port);
+        
+        if (address == NULL || port == -1) {
+          printf("Invalid input!\n");
+        } else {
+          sock = clientConnect(address, port);
+          //usleep(1000000);
+
+          if (sock >= 0) {
+            printf("Connected to overlord.\n");
+            write(sock, getPrompt(), MAX_MESSAGE_LENGTH);
+          }
         }
       } else {
+        prefix = getPrompt();
+        printf("%s", prefix);
+        
         int length = read(sock, message, MAX_MESSAGE_LENGTH);
 
         if (length > 0) {
-          printf("Command received: %s\n", message);
-          char **command = parse(message);
+          printf("%s\n", message);
+          command = parse(message);
+          
+          int pd[2];
+          pipe(pd);
+          
+          int stdout_copy = dup(STDOUT_FILENO);
+          int stderr_copy = dup(STDERR_FILENO);
+          dup2(pd[1], STDOUT_FILENO);
+          dup2(pd[1], STDERR_FILENO);
+          close(pd[1]);
 
-          int stdout = dup(STDOUT_FILENO);
-          dup2(sock, STDOUT_FILENO);
           execute(command);
-          dup2(stdout, STDOUT_FILENO);
-          close(stdout);
-        } else if (length < 0) {
+
+          dup2(stdout_copy, STDOUT_FILENO);
+          dup2(stderr_copy, STDERR_FILENO);
+
+          close(stdout_copy);
+          close(stderr_copy);
+
+          read(pd[0], message, MAX_MESSAGE_LENGTH);
+          close(pd[0]);
+
+          printf("%s", message);
+          write(sock, message, MAX_MESSAGE_LENGTH);
+          write(sock, prefix, MAX_MESSAGE_LENGTH);
+        } else if (length <= 0) {
+          printf("Lost connection to overlord. Exiting...\n");
           isRunning = 0;
         }
       }
     }
     
     close(sock);
+
+    if (input) {
+      free(input);
+    }
+
+    if (address) {
+      free(address);
+    }
+
+    if (command) {
+      free(command);
+    }
+
+    if (prefix) {
+      free(prefix);
+    }
 	}
 
 	return 0;
