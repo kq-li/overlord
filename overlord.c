@@ -8,10 +8,10 @@
 #define LOGIC_ORDER 2
 #define LOGIC_MANAGE 3
 
-#define WAIT_COMMAND 0
+#define WAIT_DEFAULT 0
 #define WAIT_CONNECT 1
 #define WAIT_NETWORK 2
-#define WAIT_DEFAULT 3
+#define WAIT_COMMAND 3
 
 char *input;
 char message[MAX_MESSAGE_LENGTH];
@@ -20,7 +20,7 @@ client_list *underlings;
 client_list *groups[NUM_GROUPS];
 volatile sig_atomic_t logicState;
 volatile sig_atomic_t waitState;
-sigjmp_buf sigint_jmps[WAIT_DEFAULT];
+sigjmp_buf sigjmps[WAIT_COMMAND];
 
 void cleanup() {
   if (input) {
@@ -42,12 +42,13 @@ static void sighandler(int signo) {
       cleanup();
       exit(1);
     } else if (waitState == WAIT_NETWORK) {
-      printf("hello");
+      //printf("Writing sigint\n");
       char data = 3;
-      write(sock, &data, 1);
+      write(sock, &data, MAX_MESSAGE_LENGTH);
+      siglongjmp(sigjmps[WAIT_DEFAULT], 1);
     }
 
-    siglongjmp(sigint_jmps[waitState], 1);
+    siglongjmp(sigjmps[waitState], 1);
   }
 }
 
@@ -94,7 +95,7 @@ int serverConnect(int sock) {
     return -1;
   }
 
-  if (sigsetjmp(sigint_jmps[WAIT_CONNECT], 1) != 0) {
+  if (sigsetjmp(sigjmps[WAIT_CONNECT], 1) != 0) {
     return -1;
   }
 
@@ -126,7 +127,7 @@ int main() {
   
   int index = -1;
 
-  while (sigsetjmp(sigint_jmps[WAIT_DEFAULT], 1) != 0);
+  while (sigsetjmp(sigjmps[WAIT_DEFAULT], 1) != 0);
   
 	while (logicState) {
     switch (logicState) {
@@ -234,7 +235,6 @@ int main() {
           sock = serverSocket(port);
         }
 
-        printf("%d\n", sock);
         waitState = WAIT_CONNECT;
         printf("Waiting for underling to connect...\n");
 

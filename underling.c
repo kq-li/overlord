@@ -93,7 +93,7 @@ char **parse(char *str) {
 	return ret;
 }
 
-void execute(char **command) {
+int execute(char **command) {
   if (equals(command[0], "cd")) {
 		if (command[1]) {
 			if (*command[1] == '~') {
@@ -154,16 +154,16 @@ void execute(char **command) {
         } else { // socket
           if (pfd[1].revents & POLLIN) {
             char data;
-            read(sock, &data, 1);
-
-            if (data == 3) {
-              kill(pid, SIGINT);
-            }
+            read(sock, &data, MAX_MESSAGE_LENGTH);
+            kill(pid, SIGINT);
+            return -1;
           }
         }
       }
     }
   }
+
+  return 0;
 }
 
 char *getPrompt() {
@@ -281,7 +281,7 @@ int main() {
           dup2(pd[1], STDERR_FILENO);
           close(pd[1]);
 
-          execute(command);
+          int executeStatus = execute(command);
 
           dup2(stdout_copy, STDOUT_FILENO);
           dup2(stderr_copy, STDERR_FILENO);
@@ -289,15 +289,18 @@ int main() {
           close(stdout_copy);
           close(stderr_copy);
 
-          readMessage(pd[0]);
+          if (executeStatus >= 0) {
+            readMessage(pd[0]);
+
+            printf("%s", message);
+            write(sock, message, MAX_MESSAGE_LENGTH);
+
+            free(prefix);
+            prefix = getPrompt();
+            write(sock, prefix, MAX_MESSAGE_LENGTH);
+          }
+
           close(pd[0]);
-
-          printf("%s", message);
-          write(sock, message, MAX_MESSAGE_LENGTH);
-
-          free(prefix);
-          prefix = getPrompt();
-          write(sock, prefix, MAX_MESSAGE_LENGTH);
         } else if (length <= 0) {
           printf("exit\n");
           isRunning = 0;
