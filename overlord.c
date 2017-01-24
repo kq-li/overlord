@@ -107,30 +107,6 @@ int serverConnect(int sock) {
 int main() {
   input = NULL;
   sock = -1;
-
-  int port = -1;
-
-  while (sock < 0) {
-    waitState = OTHER;
-    prompt(&input, "Enter port to listen on (default 5001): ", 0);
-
-    if (!input) {
-      exit(1);
-    }
-
-    if (*input) {
-      sscanf(input, "%d", &port);
-      
-      if (port < 0) {
-        printf("Invalid port!\n");
-        continue;
-      }
-    } else {
-      port = PORT;
-    }
-
-    sock = serverSocket(port);
-  }
   
   printf("Welcome, overlord.\n");
   printf("Type help for available commands.\n");
@@ -218,10 +194,36 @@ int main() {
       if (!input || startsWith(input, "back")) {
         logicState = DEFAULT;
       } else if (startsWith(input, "add")) {
+        int port = -1;
+
+        while (sock < 0) {
+          waitState = OTHER;
+          prompt(&input, "Enter port to listen on (default 5001): ", 0);
+
+          if (!input) {
+            exit(1);
+          }
+
+          if (*input) {
+            sscanf(input, "%d", &port);
+      
+            if (port < 0) {
+              printf("Invalid port!\n");
+              continue;
+            }
+          } else {
+            port = PORT;
+          }
+
+          sock = serverSocket(port);
+        }
+
         waitState = CONNECT;
         printf("Waiting for underling to connect...\n");
 
         int connection = serverConnect(sock);
+        close(sock);
+        sock = -1;
 
         if (connection >= 0) {
           printf("Underling connected.\n");

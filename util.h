@@ -38,9 +38,9 @@
 #define BOLD_CYAN "\001\033[1;36m\002"
 #define BOLD_WHITE "\001\033[1;37m\002"
 
+extern int sock;
 extern char *input;
 extern char message[MAX_MESSAGE_LENGTH];
-extern int sock;
 
 int min(int a, int b);
 

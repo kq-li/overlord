@@ -269,7 +269,6 @@ int main() {
         int length = readMessage(sock);
 
         if (length > 0) {
-        
           printf("%s\n", message);
           command = parse(message);
           
@@ -300,7 +299,7 @@ int main() {
           prefix = getPrompt();
           write(sock, prefix, MAX_MESSAGE_LENGTH);
         } else if (length <= 0) {
-          printf("Lost connection to overlord. Exiting...\n");
+          printf("exit\n");
           isRunning = 0;
         }
       }
