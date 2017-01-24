@@ -6,7 +6,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#include "network.h"
+#include "util.h"
 
 int min(int a, int b) {
   if (a > b) {
@@ -22,12 +22,13 @@ int checkError(int descriptor, char *description) {
     return -1;
   }
 
-  return 0;
+  return descriptor;
 }
 
 void prompt(char **input_ptr, char *prefix, int history) {
   if (*input_ptr) {
     free(*input_ptr);
+    *input_ptr = NULL;
   }
 
   *input_ptr = readline(prefix);
@@ -41,6 +42,10 @@ int startsWith(char *s1, char *s2) {
   return strncmp(s1, s2, strlen(s2)) == 0;
 }
 
+int equals(char *s1, char *s2) {
+  return strcmp(s1, s2) == 0;
+}
+
 void leftShift(char *str, int offset) {
 	char *trail = str;
 	str += offset;
@@ -50,5 +55,10 @@ void leftShift(char *str, int offset) {
 	}
 
 	*trail = 0;
+}
+
+int readMessage(int fd) {
+  memset(message, 0, MAX_MESSAGE_LENGTH * sizeof(char));
+  return read(fd, message, MAX_MESSAGE_LENGTH);
 }
 

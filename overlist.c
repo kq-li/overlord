@@ -8,6 +8,7 @@
 client_list *newClientList() {
   client_list *ret = (client_list *) malloc(sizeof(client_list));
   ret->size = 0;
+  return ret;
 }
 
 client_node *newClientNode(int sock, char *description, char *prefix) {

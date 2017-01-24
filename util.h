@@ -1,13 +1,24 @@
+#ifndef __UTIL_H
+#define __UTIL_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
+#include <setjmp.h>
+#include <poll.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/signalfd.h>
+#include <arpa/inet.h>
 
-#include "network.h"
+#define MAX_MESSAGE_LENGTH 4096
+#define PORT 5001
 
 #define RESET "\001\033[0m\002"
 #define BOLD "\001\033[1m\002"
@@ -27,6 +38,10 @@
 #define BOLD_CYAN "\001\033[1;36m\002"
 #define BOLD_WHITE "\001\033[1;37m\002"
 
+extern char *input;
+extern char message[MAX_MESSAGE_LENGTH];
+extern int sock;
+
 int min(int a, int b);
 
 int checkError(int descriptor, char *description);
@@ -35,4 +50,10 @@ void prompt(char **input_ptr, char *prefix, int history);
 
 int startsWith(char *s1, char *s2);
 
+int equals(char *s1, char *s2);
+
 void leftShift(char *str, int offset);
+
+int readMessage(int fd);
+
+#endif

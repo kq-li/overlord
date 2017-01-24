@@ -8,6 +8,35 @@
 #define SPACES 2
 #define QUOTES 3
 
+char *input;
+char message[MAX_MESSAGE_LENGTH];
+int sock;
+sigset_t sigset;
+struct pollfd pfd[2];
+
+int clientConnect(char *address, int port) {
+  int sock = socket(AF_INET, SOCK_STREAM, 0);
+
+  if (checkError(sock, "socket") < 0) {
+    return -1;
+  }
+
+  struct sockaddr_in sock_struct;
+  sock_struct.sin_family = AF_INET;
+  inet_aton(address, &sock_struct.sin_addr);
+  sock_struct.sin_port = htons(port);
+
+  printf("Connecting to %s:%d\n", address, port);
+
+  int connectStatus = connect(sock, (struct sockaddr *) &sock_struct, sizeof(sock_struct));
+
+  if (checkError(connectStatus, "connect") < 0) {
+    return -1;
+  }
+
+  return sock;
+}
+
 // This time, I'm hardcoding the escape sequences.
 char **parse(char *str) {
   char **ret = (char **) calloc(sizeof(char *), strlen(str));
@@ -65,16 +94,75 @@ char **parse(char *str) {
 }
 
 void execute(char **command) {
-	int pid = fork();
+  if (equals(command[0], "cd")) {
+		if (command[1]) {
+			if (*command[1] == '~') {
+				chdir(getenv("HOME"));
 
-	if (pid == -1) { //error
-		printf("Error %d: %s\n", errno, strerror(errno));
-	} else if (pid == 0) { //child
-		if (execvp(command[0], command) == -1) {
-			printf("Error %d: %s\n", errno, strerror(errno));
+				if (*(command[1] + 1)) {
+					leftShift(command[1], 2);
+
+					if (chdir(command[1]) != 0) {
+						switch (errno) {
+						case ENOTDIR:
+							printf("%s: %s: Not a directory\n", command[0], command[1]);
+							break;
+					
+						case ENOENT:
+							printf("%s: %s: No such file or directory\n", command[0], command[1]);
+							break;
+
+						default:
+							printf("Error %d: %s\n", errno, strerror(errno));
+							break;
+						}
+					}
+				}
+			} else if (chdir(command[1]) != 0) {
+				switch (errno) {
+				case ENOTDIR:
+					printf("%s: %s: Not a directory\n", command[0], command[1]);
+					break;
+					
+				case ENOENT:
+					printf("%s: %s: No such file or directory\n", command[0], command[1]);
+					break;
+
+				default:
+					printf("Error %d: %s\n", errno, strerror(errno));
+					break;
+				}
+			}
+		} else {
+			chdir(getenv("HOME"));
 		}
-	} else { //parent
-    waitpid(pid, NULL, 0);
+  } else {
+    int pid = fork();
+
+    if (pid == -1) { //error
+      printf("Error %d: %s\n", errno, strerror(errno));
+    } else if (pid == 0) { //child
+      if (execvp(command[0], command) == -1) {
+        printf("Error %d: %s\n", errno, strerror(errno));
+      }
+    } else { //parent
+      int pollStatus = poll(pfd, 2, -1);
+
+      if (checkError(pollStatus, "ppoll") > 0) {
+        if (pfd[0].revents) { // SIGCHLD
+
+        } else { // socket
+          if (pfd[1].revents & POLLIN) {
+            char data;
+            read(sock, &data, 1);
+
+            if (data == 3) {
+              kill(pid, SIGINT);
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -90,15 +178,9 @@ char *getPrompt() {
 	char hostname[256];
 	gethostname(hostname, 256);
 	
-	char *prefix = (char *) calloc(sizeof(char), strlen(cwd) + strlen(hostname) + 64);
-	sprintf(prefix,
-					//BOLD_RED
-          "%s:"
-          //BOLD_BLUE
-          "%s $ "
-          //BOLD_GREEN
-          ,
-          hostname, cwd);
+	char *prefix = (char *) calloc(sizeof(char), strlen(cwd) + strlen(hostname) + 5);
+	sprintf(prefix, "%s:%s $ ", hostname, cwd);
+  free(cwd);
 
   return prefix;
 }
@@ -122,15 +204,27 @@ int main() {
 		printf("\n");
 		
 	} else {
-    char *input = NULL;
     char *address = NULL;
     int port = -1;
     int isRunning = 1;
-    char message[MAX_MESSAGE_LENGTH];
-    int sock = -1;
+    input = NULL;
+    sock = -1;
     char *prefix = NULL;
     char **command = NULL;
 
+    sigset_t sigset;
+    int sigchld_fd;
+    
+    if (checkError(sigemptyset(&sigset), "sigemptyset") < 0 ||
+        checkError(sigaddset(&sigset, SIGCHLD), "sigaddset") < 0 ||
+        checkError(sigprocmask(SIG_BLOCK, &sigset, NULL), "sigprocmask") < 0 ||
+        (sigchld_fd = checkError(signalfd(-1, &sigset, 0), "signalfd")) < 0) {
+      exit(1);
+    }
+
+    pfd[0].fd = sigchld_fd;
+    pfd[0].events = POLLIN | POLLERR | POLLHUP;
+    
     while (isRunning) {
       if (sock < 0) {
         prompt(&input, "Enter overlord address (default 127.0.0.1): ", 1);
@@ -160,17 +254,22 @@ int main() {
           //usleep(1000000);
 
           if (sock >= 0) {
+            pfd[1].fd = sock;
+            pfd[1].events = POLLIN | POLLERR | POLLHUP;
+            
             printf("Connected to overlord.\n");
-            write(sock, getPrompt(), MAX_MESSAGE_LENGTH);
+            prefix = getPrompt();
+            write(sock, prefix, MAX_MESSAGE_LENGTH);
           }
         }
       } else {
-        prefix = getPrompt();
-        printf("%s", prefix);
+        printf("[UNDERLING] %s", prefix);
+        fflush(stdout);
         
-        int length = read(sock, message, MAX_MESSAGE_LENGTH);
+        int length = readMessage(sock);
 
         if (length > 0) {
+        
           printf("%s\n", message);
           command = parse(message);
           
@@ -191,11 +290,14 @@ int main() {
           close(stdout_copy);
           close(stderr_copy);
 
-          read(pd[0], message, MAX_MESSAGE_LENGTH);
+          readMessage(pd[0]);
           close(pd[0]);
 
           printf("%s", message);
           write(sock, message, MAX_MESSAGE_LENGTH);
+
+          free(prefix);
+          prefix = getPrompt();
           write(sock, prefix, MAX_MESSAGE_LENGTH);
         } else if (length <= 0) {
           printf("Lost connection to overlord. Exiting...\n");
@@ -203,8 +305,10 @@ int main() {
         }
       }
     }
-    
-    close(sock);
+
+    if (sock >= 0) {
+      close(sock);
+    }
 
     if (input) {
       free(input);
