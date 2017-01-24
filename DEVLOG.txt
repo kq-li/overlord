@@ -1,0 +1,37 @@
+2016-01-24
+	Finished project (for now).
+
+2016-01-23
+	Did a lot more work on overlord and overlist and things UI-wise.
+	Made all underling output redirect to socket through hacky pipe solution.
+	Set up prompts and things.
+	Added some weird signal stuff for user navigation.
+
+2016-01-20
+	Expanded functionality -- overlord can add, view, and order underlings.
+	Refactored shared functions into util.c.
+
+2016-01-19
+	More overlord UI and some basic functionality.
+	MAJOR BUGS:
+		Closing overlord doesn't free port?
+		Closing overlord causes underlings to infinitely repeat last command.
+
+2016-01-18
+	Set up socket list data structure.
+	Set up some overlord UI and basic underling management.
+
+2016-01-13
+	Set up networking.
+		TODO: Overlord data structure.
+
+2016-01-09
+	Worked on a more advanced command parser.
+		Quotes and backslashes as escape sequences work.
+		TODO: Redirection.
+
+2016-01-06
+	Basic fgets functionality for master program.
+	Basic execvp functionality for slave program.
+
+	
