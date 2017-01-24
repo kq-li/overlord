@@ -1,25 +1,26 @@
 #include "util.h"
 #include "overlist.h"
 
-#define MAX_INPUT 1024
+#define NUM_GROUPS 10
 
-#define EXIT 0
-#define DEFAULT 1
-#define ORDER 2
-#define MANAGE 3
+#define LOGIC_EXIT 0
+#define LOGIC_DEFAULT 1
+#define LOGIC_ORDER 2
+#define LOGIC_MANAGE 3
 
-#define COMMAND 0
-#define CONNECT 1
-#define NETWORK 2
-#define OTHER 3
+#define WAIT_COMMAND 0
+#define WAIT_CONNECT 1
+#define WAIT_NETWORK 2
+#define WAIT_DEFAULT 3
 
 char *input;
 char message[MAX_MESSAGE_LENGTH];
 int sock;
 client_list *underlings;
+client_list *groups[NUM_GROUPS];
 volatile sig_atomic_t logicState;
 volatile sig_atomic_t waitState;
-sigjmp_buf sigint_jmps[OTHER];
+sigjmp_buf sigint_jmps[WAIT_DEFAULT];
 
 void cleanup() {
   if (input) {
@@ -37,22 +38,16 @@ void cleanup() {
 
 static void sighandler(int signo) {
   if (signo == SIGINT) {
-    if (logicState == DEFAULT) {
+    if (waitState == WAIT_COMMAND) {
       cleanup();
       exit(1);
-    } else if (waitState == COMMAND) {
-      logicState = DEFAULT;
-      siglongjmp(sigint_jmps[waitState], 1);
-    } else if (waitState == CONNECT) {
-      siglongjmp(sigint_jmps[waitState], 1);
-    } else if (waitState == NETWORK) {
+    } else if (waitState == WAIT_NETWORK) {
       printf("hello");
       char data = 3;
       write(sock, &data, 1);
-      siglongjmp(sigint_jmps[waitState], 1);
-    } else {
-      siglongjmp(sigint_jmps[COMMAND], 1);
     }
+
+    siglongjmp(sigint_jmps[waitState], 1);
   }
 }
 
@@ -64,6 +59,19 @@ int serverSocket(int port) {
     return -1;
   }
 
+  int enable = 1;
+  int sockoptStatus = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+
+  if (checkError(sockoptStatus, "setsockopt") < 0) {
+    return -1;
+  }
+
+  sockoptStatus = setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
+
+  if (checkError(sockoptStatus, "setsockopt") < 0) {
+    return -1;
+  }
+  
   struct sockaddr_in sock_struct;
   sock_struct.sin_family = AF_INET;
   sock_struct.sin_addr.s_addr = INADDR_ANY;
@@ -86,7 +94,7 @@ int serverConnect(int sock) {
     return -1;
   }
 
-  if (sigsetjmp(sigint_jmps[CONNECT], 1) != 0) {
+  if (sigsetjmp(sigint_jmps[WAIT_CONNECT], 1) != 0) {
     return -1;
   }
 
@@ -112,36 +120,38 @@ int main() {
   printf("Type help for available commands.\n");
 
   underlings = newClientList();
-  logicState = DEFAULT;
-  waitState = COMMAND;
+  logicState = LOGIC_DEFAULT;
+  waitState = WAIT_DEFAULT;
   signal(SIGINT, sighandler);
   
   int index = -1;
 
-  while (sigsetjmp(sigint_jmps[COMMAND], 1) != 0);
+  while (sigsetjmp(sigint_jmps[WAIT_DEFAULT], 1) != 0);
   
 	while (logicState) {
     switch (logicState) {
-    case DEFAULT:
-      waitState = COMMAND;
+    case LOGIC_DEFAULT:
+      waitState = WAIT_COMMAND;
       prompt(&input, "[DEFAULT]> ", 1);
-      waitState = OTHER;
+      waitState = WAIT_DEFAULT;
       
-      if (!input || startsWith(input, "exit")) {
-        logicState = EXIT;
-      } else if (startsWith(input, "help")) {
-      
-      } else if (startsWith(input, "order")) {
-        logicState = ORDER;
-      } else if (startsWith(input, "manage")) {
-        logicState = MANAGE;
+      if (!input || equals(input, "exit")) {
+        logicState = LOGIC_EXIT;
+      } else if (equals(input, "help")) {
+        printf("Type 'manage' to manage underlings.\n");
+        printf("Type 'order' to give orders to underlings.\n");
+        printf("Type 'exit' to exit.\n");
+      } else if (equals(input, "order")) {
+        logicState = LOGIC_ORDER;
+      } else if (equals(input, "manage")) {
+        logicState = LOGIC_MANAGE;
       } 
 
       break;
 
-    case ORDER:
+    case LOGIC_ORDER:
       if (!input) {
-        logicState = DEFAULT;
+        logicState = LOGIC_DEFAULT;
         break;
       }
       
@@ -162,7 +172,7 @@ int main() {
         prompt(&input, underling->prefix, 0);
         
         if (equals(input, "exit")) {
-          logicState = DEFAULT;
+          logicState = LOGIC_DEFAULT;
           index = -1;
         } else {
           strncpy(message, input, MAX_MESSAGE_LENGTH);
@@ -170,7 +180,7 @@ int main() {
           // write command
           write(underling->sock, message, MAX_MESSAGE_LENGTH);
 
-          waitState = NETWORK;
+          waitState = WAIT_NETWORK;
 
           // read command output
           readMessage(underling->sock);
@@ -186,18 +196,24 @@ int main() {
       
       break;
 
-    case MANAGE:
-      waitState = COMMAND;
+    case LOGIC_MANAGE:
+      waitState = WAIT_COMMAND;
       prompt(&input, "[MANAGE]> ", 1);
-      waitState = OTHER;
+      waitState = WAIT_DEFAULT;
 
-      if (!input || startsWith(input, "back")) {
-        logicState = DEFAULT;
-      } else if (startsWith(input, "add")) {
+      if (!input || equals(input, "back")) {
+        logicState = LOGIC_DEFAULT;
+      } else if (equals(input, "help")) {
+        printf("Type 'back' or Control-C to return to the default state.\n");
+        printf("Type 'add' to add underlings.\n");
+        printf("Type 'view' to see current underlings.\n");
+        printf("Type 'remove' to remove underlings.\n");
+      } else if (equals(input, "add")) {
+        sock = -1;
         int port = -1;
 
         while (sock < 0) {
-          waitState = OTHER;
+          waitState = WAIT_DEFAULT;
           prompt(&input, "Enter port to listen on (default 5001): ", 0);
 
           if (!input) {
@@ -218,12 +234,12 @@ int main() {
           sock = serverSocket(port);
         }
 
-        waitState = CONNECT;
+        printf("%d\n", sock);
+        waitState = WAIT_CONNECT;
         printf("Waiting for underling to connect...\n");
 
         int connection = serverConnect(sock);
         close(sock);
-        sock = -1;
 
         if (connection >= 0) {
           printf("Underling connected.\n");
@@ -233,7 +249,7 @@ int main() {
 
           addClientToList(underlings, connection, input, message);
         }
-      } else if (startsWith(input, "remove")) {
+      } else if (equals(input, "remove")) {
         printClientList(underlings);
         
         int id = -1;
@@ -247,7 +263,7 @@ int main() {
         } else {
           removeClientFromList(underlings, id);
         }
-      } else if (startsWith(input, "view")) {
+      } else if (equals(input, "view")) {
         printClientList(underlings);
       }
             
